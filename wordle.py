@@ -7,7 +7,7 @@ import random
 from pprint import pformat
 from enum import Enum
 from english_words import english_words_lower_alpha_set
-
+from time import sleep
 
 FORMAT = '%(message)s'
 logging.basicConfig(format=FORMAT)
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-       
+### Make this a singleton       
 class WordCollection:
     words = None 
     def __init__(self, _type = 'wordle-words'):
@@ -103,6 +103,23 @@ class GameState:
 
     def guess_number(self):
         return len(self.guesses)
+
+class SimulatedGameState(GameState):
+    def __init__(self, legal_words = WordCollection().get_words()):
+        super(SimulatedGameState, self).__init__()
+        self.legal_words = legal_words
+        self.hidden_word = random.choice(self.legal_words)
+
+    def simulate_response(self, guess):
+        colors = list()
+        for index, letter in enumerate(guess):
+            if letter == self.hidden_word[index]:
+                colors.append(WordleColor.GREEN)
+            elif letter in self.hidden_word:
+                colors.append(WordleColor.YELLOW)
+            else:
+                colors.append(WordleColor.BLACK)
+        return WordleResponse(colors)
 
 class BadFormatError(Exception):
     '''Raised when an answer to a prompt is poorly formatted.'''
@@ -221,30 +238,104 @@ class RandomWordleAlgorithm(SimpleRandomWordleAlgorithm):
     word_filter_class = SmartWordFilter
 
 
-class WordleCommandLineEngine(cmd.Cmd):
-    intro = "Welcome to WordleEngine! Type 'help' or '?' to see a list of worlde engines. Type the engine name to use an engine to play. 'Ctrl+c' to quit\n"
+class WordleMenu(cmd.Cmd):
+    intro = "Welcome to WordleEngine! Type 'help' or '?' to see a list of worlde engines. Type the engine name to use an engine to play. Type the engine name plus " + \
+    "'simulate <Num Games>' to watch the engine play <Num Games>. Ctrl+c' to quit.\n"
     prompt = '(menu)'
     file = None
 
     def do_simplerandom(self, arg):
         '''Use the simplist engine, 
         one that uses totally random guesses on each run, regardless of the previous response.'''
-        WordleCmdLoop(algorithm = SimpleRandomWordleAlgorithm(), game_state= GameState(),
-                name='SimpleRandomAlgo', prompt='(rand-simple-engine)').cmdloop()
+        args = arg.split()
+        kwargs = {'algorithm': SimpleRandomWordleAlgorithm(), 
+                'name': 'SimpleRandomAlgo', 
+                'prompt': '(rand-simple-engine)'
+                }
+        if len(args):
+            if args[0] == 'simulate':
+                num_games = int(args[1])
+                kwargs['_type'] = 'simulate'
+                kwargs['num_games'] = num_games
+                kwargs['num_games'] = num_games
+                SimulatedCmdLoop(**kwargs).cmdloop()
+        else:
+            kwargs['game_state'] = GameState()
+            ManualCmdLoop(**kwargs).cmdloop()
+
         return False 
 
     def do_random(self, arg):
         '''Use a random engine that filters the possible wordset using wordle\'s previous responses.
         '''
-        WordleCmdLoop(algorithm = RandomWordleAlgorithm(), game_state= GameState(),
-                name='RandomAlgo', prompt='(rand-engine)').cmdloop()
+        args = arg.split()
+        kwargs = {'algorithm': RandomWordleAlgorithm(), 
+                'name': 'RandomAlgo', 
+                'prompt': '(rand-engine)'
+                }
+        if len(args):
+            if args[0] == 'simulate':
+                num_games = int(args[1])
+                kwargs['num_games'] = num_games
+                SimulatedCmdLoop(**kwargs).cmdloop()
+        else:
+            kwargs['game_state'] = GameState()
+            ManualCmdLoop(**kwargs).cmdloop()
+
         return False 
 
-class WordleCmdLoop(cmd.Cmd):
+class SimulatedCmdLoop(cmd.Cmd):
+    def __init__(self, algorithm, name, prompt, num_games):
+        super(SimulatedCmdLoop,self).__init__()
+        self.algorithm = algorithm
+        self.name = name
+        self.prompt = prompt
+        self.num_games = num_games
+
+    def preloop(self):
+        self.stdout.write('Lets watch the simulation! {} games will play.\n'.format(self.num_games))
+        self.stdout.write('Hit enter to start simulating. \n')
+
+    def onecmd(self, line):
+        stop = False
+        games_left = self.num_games
+
+        while games_left >= 1:
+            game = SimulatedGameState()
+            while not game.game_over():
+                guess =  self.algorithm.get_next_answer(game)
+                if game.is_first_move():
+                    self.stdout.write("The hidden word is {}\n".format(game.hidden_word.upper()))
+                    self.stdout.write("{}'s first guess is: \n".format(self.name))
+                else:
+                    self.stdout.write("{}'s next guess is:\n".format(self.name))
+                self.stdout.write(guess + '\n')
+                game.add_guess(guess)
+                self.stdout.write("Simulated response is: \n")
+                response = game.simulate_response(guess)
+                # Would be create if this wasn't text
+                self.stdout.write(str(response) + '\n')
+                game.add_response(response)
+                sleep(2)
+                
+            games_left -= 1
+            
+            self.stdout.write("Game is finished! {} game(s) left to simulate.\n".format(games_left))
+            if game.is_won():
+                self.stdout.write("We won! Number of guesses to solution was: {}\n".format(game.guess_number()))
+            else:
+                self.stdout.write("We lost! Bummer. \n")
+            sleep(5)
+
+        stop = True
+        return stop
+
+
+class ManualCmdLoop(cmd.Cmd):
     prompt = None 
 
     def __init__(self, algorithm, game_state, name, prompt):
-        super(WordleCmdLoop,self).__init__()
+        super(ManualCmdLoop,self).__init__()
         self.algorithm = algorithm
         self.game = game_state
         self.name = name
@@ -313,16 +404,9 @@ class WordleCmdLoop(cmd.Cmd):
             self.stdout.write("What was wordle's response?\n")
         return stop
 
-class RandomWordleCmdLoop(WordleCmdLoop):
-    prompt = '(random)'
-
-    def __init__(self):
-        super().__init__(SimpleRandomWordleAlgorithm(), GameState(), name='SimpleRandomEngine')
-
-
 def main():
     try:
-        WordleCommandLineEngine().cmdloop()
+        WordleMenu().cmdloop()
     except KeyboardInterrupt:
         logger.info('')
         logger.info('Thanks for playing!')
