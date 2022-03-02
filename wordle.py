@@ -17,21 +17,25 @@ logger.setLevel(logging.INFO)
 
 ### Make this a singleton       
 class WordCollection:
-    words = None 
-    def __init__(self, _type = 'wordle-words'):
-        if not self.words:
-            if  _type == 'all-english-words':
-                self.words = [x for x in english_words_lower_alpha_set if len(x) == 5]
-            elif _type == 'wordle-words':
-                self.words = list()
-                with open('artifacts/possible-wordle-answers.txt') as f:
-                    for line in f:
-                        self.words.append(line.strip().lower())
-            else: 
-                raise ValueError("Unknown type of word collection: {}".format(_type)) 
+    '''Responsible for building the collection legal words and legal answers.'''
+    guesses = None
+    answers = None
 
-    def get_words(self):
-        return self.words
+    def __init__(self, _type = 'wordle-words'):
+        if  _type == 'all-english-words':
+            self.guesses = [x for x in english_words_lower_alpha_set if len(x) == 5]
+            self.answers = self.guesses
+        elif _type == 'wordle-words':
+            self.guesses = list()
+            with open('artifacts/possible-wordle-answers.txt') as f1:
+                for line in f1:
+                    self.guesses.append(line.strip().lower())
+            self.answers = list()
+            with open('artifacts/all-possible-wordle-answers-easy.txt') as f2:
+                for line in f2:
+                    self.answers.append(line.strip().lower())
+        else: 
+            raise ValueError("Unknown type of word collection: {}".format(_type)) 
 
 class WordleResponse:
     def __init__(self, colors):
@@ -105,9 +109,8 @@ class GameState:
         return len(self.guesses)
 
 class SimulatedGameState(GameState):
-    def __init__(self, legal_words = WordCollection().get_words()):
-        super(SimulatedGameState, self).__init__()
-        self.legal_words = legal_words
+    def __init__(self, *args, **kwargs):
+        super(SimulatedGameState, self).__init__(*args, **kwargs)
         self.hidden_word = random.choice(self.legal_words)
 
     def simulate_response(self, guess):
@@ -146,8 +149,9 @@ class WordleColor(Enum):
             raise BadFormatError('Letter is not b, y, or g!')
 
 class WordFilter:
-    def __init__(self, legal_words):
-        self.legal_words = legal_words
+    def __init__(self, legal_guesses, legal_answers):
+        self.legal_guesses = legal_guesses
+        self.legal_answers = legal_answers
 
     def get_possible_words(self, game_state):
         raise NotImplementedError()
@@ -155,7 +159,7 @@ class WordFilter:
 class BasicWordFilter(WordFilter):
     '''Returns the entire set of legal words every time.'''
     def get_possible_words(self, game_state):
-        return self.legal_words
+        return self.legal_guesses
 
 class SmartWordFilter(WordFilter):
     '''Filters possible answers to wordle using previous wordle responses'''
@@ -168,12 +172,12 @@ class SmartWordFilter(WordFilter):
         assert len(game_state.responses) == len(game_state.guesses), "Games responses and guesses are not equal! GameState is: {}".format(str(game_state))
 
         if game_state.is_first_move():
-            return self.legal_words
+            return self.legal_guesses
        
         # words that pass all of the conditions in wordles responses
         valid_words = list()
 
-        for word in self.legal_words:
+        for word in self.legal_answers:
             if self._is_valid_word(game_state.responses, game_state.guesses, word):
                 valid_words.append(word)
         
@@ -211,25 +215,34 @@ class WordleAlgorithm:
     '''An algorithm that chooses the next guess for wordle'''
     word_filter_class = WordFilter
 
-    def __init__(self, legal_words = WordCollection().get_words()):
-        self.legal_words = legal_words
-        self.word_filter = self.word_filter_class(legal_words)
+    def __init__(self, legal_guesses = None, legal_answers = None ):
+        words = None
+        if legal_guesses is None or legal_answers is None: 
+            words = WordCollection().get_words()
+        if legal_guesses is None:
+            legal_guesses = words.legal_guesses
+        if legal_answers is None:
+            legal_answers = words.legal_answers
+
+        self.legal_answers = legal_answers
+        self.legal_guesses = legal_guesses
+        self.word_filter = self.word_filter_class(legal_guesses, legal_answers)
 
     def get_next_answer(self, game_state):
         valid_answers = self.get_possible_answers(game_state)
-        return self.guess(valid_answers)
+        return self.guess(valid_answers, self.legal_guesses)
 
     def get_possible_answers(self, game_state):
         return self.word_filter.get_possible_words(game_state)
 
-    def guess(self, valid_answers):
+    def guess(self, valid_answers, valid_guesses):
         raise NotImplementedError()
 
 class SimpleRandomWordleAlgorithm(WordleAlgorithm):
-    '''Chooses a random word everytime, regardless of wordle's responses.'''
+    '''Chooses a random word everytime thats always a valid answer, regardless of wordle's responses.'''
     word_filter_class = BasicWordFilter
 
-    def guess(self, valid_answers):
+    def guess(self, valid_answers, valid_guesses):
         return random.choice(valid_answers)
 
 

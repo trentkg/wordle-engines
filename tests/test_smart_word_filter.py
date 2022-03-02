@@ -4,7 +4,7 @@ def test_filter():
     legal_words = ['women','nikau','swack','feens','fyles','poled','clags','starn','sharn','woops']
     hidden_word = 'sharn'
     game = GameState()
-    word_filter = SmartWordFilter(legal_words = legal_words)
+    word_filter = SmartWordFilter(legal_guesses = legal_words, legal_answers = legal_words)
     initial_set = set(word_filter.get_possible_words(game))
     first_expected_set = set(legal_words)
     assert initial_set == first_expected_set 
@@ -55,7 +55,8 @@ def test_filter():
 def test_filter_always_returns_set_doesnt_break_with_real_wordle_example():
     '''This real world example broke our filter today.'''
     game = GameState()
-    word_filter = SmartWordFilter(legal_words=WordCollection().get_words())
+    words = WordCollection()
+    word_filter = SmartWordFilter(legal_guesses=words.guesses, legal_answers=words.answers)
     # hidden word is  NASTY
         
     game.add_guess('calid')
