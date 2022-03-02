@@ -51,7 +51,7 @@ class InvalidGameStateError(RuntimeError):
 
 
 class GameState:
-    max_rounds = 5
+    max_rounds = 6
 
     def __init__(self):
         self.responses = list()
@@ -65,7 +65,7 @@ class GameState:
 
     def add_response(self, response):
         if len(self.responses) >= self.max_rounds:
-            raise InvalidGameStateError("There are more than 5 wordle responses already!")
+            raise InvalidGameStateError("There are more than 6 wordle responses already!")
         if self.game_over():
             raise InvalidGameStateError("Cannot add a wordle response - game is over!")
 
@@ -73,7 +73,7 @@ class GameState:
 
     def add_guess(self, string):
         if len(self.guesses) >= self.max_rounds:
-            raise InvalidGameStateError("There are more than 5 wordle guesses already!")
+            raise InvalidGameStateError("There are more than 6 wordle guesses already!")
         if self.game_over():
             raise InvalidGameStateError("Cannot add another guess - game is over!")
 

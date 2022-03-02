@@ -7,9 +7,9 @@ def game():
     return GameState()
 
 def test_when_all_wrong(game):
-    '''Test that the game ends when there are 5 rounds of guessing and all are wrong'''
+    '''Test that the game ends when there are 6 rounds of guessing and all are wrong'''
     wrong = WordleResponse(colors=[WordleColor.BLACK for x in range(5)])
-    for i in range(4):
+    for i in range(5):
         game.add_guess('guess')
         game.add_response(wrong)
 
@@ -19,7 +19,7 @@ def test_when_all_wrong(game):
 
     game.add_guess('guess')
     game.add_response(wrong)
-    assert game.game_over(), 'Game is NOT over when there have been 5 guesses!'
+    assert game.game_over(), 'Game is NOT over when there have been 6 guesses!'
     assert not game.is_won(), 'Game is won when every guess has been wrong!'
     assert not game.any_rounds_remaining(), 'There are guesses remaining when there shouldn\'t be!'
     with pytest.raises(InvalidGameStateError) as excinfo:
