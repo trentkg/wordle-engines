@@ -29,11 +29,15 @@ class WordCollection:
             self.guesses = list()
             with open('artifacts/possible-wordle-answers.txt') as f1:
                 for line in f1:
-                    self.guesses.append(line.strip().lower())
+                    word = line.strip().lower()
+                    if len(word) == 5:
+                        self.guesses.append(word)
             self.answers = list()
             with open('artifacts/all-possible-wordle-answers-easy.txt') as f2:
                 for line in f2:
-                    self.answers.append(line.strip().lower())
+                    word = line.strip().lower()
+                    if len(word) == 5:
+                        self.answers.append(word)
         else: 
             raise ValueError("Unknown type of word collection: {}".format(_type)) 
 
@@ -109,9 +113,11 @@ class GameState:
         return len(self.guesses)
 
 class SimulatedGameState(GameState):
-    def __init__(self, *args, **kwargs):
-        super(SimulatedGameState, self).__init__(*args, **kwargs)
-        self.hidden_word = random.choice(self.legal_words)
+    def __init__(self, legal_guesses, legal_answers):
+        super(SimulatedGameState, self).__init__()
+        self.legal_guesses = legal_guesses
+        self.legal_answers = legal_answers
+        self.hidden_word = random.choice(self.legal_answers)
 
     def simulate_response(self, guess):
         colors = list()
@@ -192,9 +198,6 @@ class SmartWordFilter(WordFilter):
 
     def _passes_wordle_response(self, wordle_response, guess, word):
         '''Checks if a word passes the conditions in WordleResponse'''
-        #import pdb
-        #if word in ('women','fyles','woops'):
-        #    pdb.set_trace()
 
         for index, color in enumerate(wordle_response.colors):
             guess_letter = guess[index]
@@ -218,11 +221,11 @@ class WordleAlgorithm:
     def __init__(self, legal_guesses = None, legal_answers = None ):
         words = None
         if legal_guesses is None or legal_answers is None: 
-            words = WordCollection().get_words()
+            words = WordCollection()
         if legal_guesses is None:
-            legal_guesses = words.legal_guesses
+            legal_guesses = words.guesses
         if legal_answers is None:
-            legal_answers = words.legal_answers
+            legal_answers = words.answers
 
         self.legal_answers = legal_answers
         self.legal_guesses = legal_guesses
@@ -230,24 +233,24 @@ class WordleAlgorithm:
 
     def get_next_answer(self, game_state):
         valid_answers = self.get_possible_answers(game_state)
-        return self.guess(valid_answers, self.legal_guesses)
+        return self.guess(valid_answers, self.legal_guesses, game_state)
 
     def get_possible_answers(self, game_state):
         return self.word_filter.get_possible_words(game_state)
 
-    def guess(self, valid_answers, valid_guesses):
+    def guess(self, valid_answers, valid_guesses, game_state):
         raise NotImplementedError()
 
 class SimpleRandomWordleAlgorithm(WordleAlgorithm):
-    '''Chooses a random word everytime thats always a valid answer, regardless of wordle's responses.'''
+    '''Chooses a random valid answer everytime, regardless of wordle's responses.'''
     word_filter_class = BasicWordFilter
 
-    def guess(self, valid_answers, valid_guesses):
+    def guess(self, valid_answers, valid_guesses, game_state):
         return random.choice(valid_answers)
 
 
 class RandomWordleAlgorithm(SimpleRandomWordleAlgorithm):
-    '''Chooses a random word everytime, but uses wordles responses to narrow its decision'''
+    '''Chooses a random valid answer everytime, but uses wordles responses to narrow its decision'''
     word_filter_class = SmartWordFilter
 
 
@@ -313,8 +316,10 @@ class SimulatedCmdLoop(cmd.Cmd):
         stop = False
         games_left = self.num_games
 
+        words = WordCollection()
+
         while games_left >= 1:
-            game = SimulatedGameState()
+            game = SimulatedGameState(legal_guesses = words.guesses, legal_answers = words.answers)
             while not game.game_over():
                 guess =  self.algorithm.get_next_answer(game)
                 if game.is_first_move():
