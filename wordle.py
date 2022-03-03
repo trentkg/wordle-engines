@@ -4,6 +4,7 @@ import cmd
 import click
 import logging
 import random
+import colorama
 from pprint import pformat
 from enum import Enum
 from english_words import english_words_lower_alpha_set
@@ -14,6 +15,7 @@ logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+colorama.init(autoreset=True)
 
 ### Make this a singleton       
 class WordCollection:
@@ -66,10 +68,28 @@ class GameState:
         self.guesses = list()
 
     def __repr__(self):
-        string = '\n'.join(["Game Responses: {}".format(pformat(self.responses)),
-            "Game guesses: {}".format(pformat(self.guesses))])
-        return string
+        lines = list()
+        space = '-----------'
+        lines.append(space)
+        colorama.reinit()
+        for word, response in zip(self.guesses, self.responses):
+            line = ''
+            for letter, color in zip(word, response.colors):
+                background = None
+                if color == WordleColor.GREEN:
+                    background = colorama.Back.GREEN
+                elif color == WordleColor.YELLOW:
+                    background = colorama.Back.YELLOW 
+                elif color == WordleColor.BLACK:
+                    background = colorama.Back.BLACK 
+                else:
+                    raise RuntimeError("Unknown wordle color: " + str(color))
+                line += colorama.Style.BRIGHT + background + colorama.Fore.WHITE + letter 
 
+
+            lines.append('|  '+line+colorama.Style.RESET_ALL+'  |' )
+        lines.append(space)
+        return '\n'.join(lines)
 
     def add_response(self, response):
         if len(self.responses) >= self.max_rounds:
@@ -99,6 +119,9 @@ class GameState:
     def any_rounds_remaining(self): 
         return self.max_rounds > len(self.guesses) or \
                 self.max_rounds > len(self.responses)
+
+    def guesses_remaining(self):
+        return self.max_rounds - len(self.guesses)
 
     def game_over(self):
         if self.is_first_move():
@@ -253,6 +276,46 @@ class RandomWordleAlgorithm(SimpleRandomWordleAlgorithm):
     '''Chooses a random valid answer everytime, but uses wordles responses to narrow its decision'''
     word_filter_class = SmartWordFilter
 
+class TrentsWordleAlgorithm(WordleAlgorithm):
+    '''
+    Tries to use heuristics to find the right word, such as having a hardcoded first guess
+    and only using the set of valid answers as the remaining guesses becomes small
+
+    '''
+    word_filter_class = SmartWordFilter
+
+    def guess(self, valid_answers, valid_guesses, game_state):
+        remaining_guesses = game_state.guesses_remaining()
+        nrounds = game_state.max_rounds
+        this_guess = None
+
+        if remaining_guesses == 6:
+            # Some mathemtician online found this to be the best first guess
+            this_guess = 'salet'
+
+        elif remaining_guesses == 5:
+            # We should be using most probably guesses here 
+            this_guess = random.choice(valid_guesses)
+        elif remaining_guesses == 4:
+            this_guess = random.choice(valid_guesses)
+        elif remaining_guesses == 3:
+            this_guess = random.choice(valid_guesses)
+        elif remaining_guesses == 2:
+            # this is no different than RandomWordleAlgorithm
+            this_guess = random.choice(valid_answers)
+        elif remaining_guesses == 1:
+            # Same as above
+            this_guess = random.choice(valid_answers)
+        else:
+            raise AssertionError("Game is over, no more guesses left!")
+
+        return this_guess
+
+class ReinforcementLearningWordleAlgorithm(WordleAlgorithm):
+    '''Uses reinforcement learning to find the best way to choose a word.'''
+    pass
+
+
 
 class WordleMenu(cmd.Cmd):
     intro = "Welcome to WordleEngine! Type 'help' or '?' to see a list of worlde engines. Type the engine name to use an engine to play. Type the engine name plus " + \
@@ -300,6 +363,25 @@ class WordleMenu(cmd.Cmd):
 
         return False 
 
+    def do_trent(self, arg):
+        '''Use an algorithm of my design, see source code for examples 
+        '''
+        args = arg.split()
+        kwargs = {'algorithm': TrentsWordleAlgorithm(), 
+                'name': 'TrentsAlgo', 
+                'prompt': '(trents-engine)'
+                }
+        if len(args):
+            if args[0] == 'simulate':
+                num_games = int(args[1])
+                kwargs['num_games'] = num_games
+                SimulatedCmdLoop(**kwargs).cmdloop()
+        else:
+            kwargs['game_state'] = GameState()
+            ManualCmdLoop(**kwargs).cmdloop()
+
+        return False 
+
 class SimulatedCmdLoop(cmd.Cmd):
     def __init__(self, algorithm, name, prompt, num_games):
         super(SimulatedCmdLoop,self).__init__()
@@ -322,18 +404,10 @@ class SimulatedCmdLoop(cmd.Cmd):
             game = SimulatedGameState(legal_guesses = words.guesses, legal_answers = words.answers)
             while not game.game_over():
                 guess =  self.algorithm.get_next_answer(game)
-                if game.is_first_move():
-                    self.stdout.write("The hidden word is {}\n".format(game.hidden_word.upper()))
-                    self.stdout.write("{}'s first guess is: \n".format(self.name))
-                else:
-                    self.stdout.write("{}'s next guess is:\n".format(self.name))
-                self.stdout.write(guess + '\n')
                 game.add_guess(guess)
-                self.stdout.write("Simulated response is: \n")
                 response = game.simulate_response(guess)
-                # Would be create if this wasn't text
-                self.stdout.write(str(response) + '\n')
                 game.add_response(response)
+                self.stdout.write(str(game) + '\n\n')
                 sleep(2)
                 
             games_left -= 1
@@ -391,6 +465,8 @@ class ManualCmdLoop(cmd.Cmd):
         colors = [WordleColor.from_letter(x) for x in answer] 
         self.game.add_response(WordleResponse(colors))
         self.stdout.write("Got it!\n")
+        self.stdout.write("The board should look like:\n")
+        self.stdout.write(str(self.game)+'\n')
             # Then give the next guess
         if not self.game.game_over():
             next_guess =  self.algorithm.get_next_answer(self.game)
