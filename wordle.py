@@ -67,6 +67,10 @@ class GameState:
         self.responses = list()
         self.guesses = list()
 
+    def reset(self):
+        self.responses = list()
+        self.guesses = list()
+
     def __repr__(self):
         lines = list()
         space = '-----------'
@@ -400,8 +404,9 @@ class SimulatedCmdLoop(cmd.Cmd):
 
         words = WordCollection()
 
+        game = SimulatedGameState(legal_guesses = words.guesses, legal_answers = words.answers)
+
         while games_left >= 1:
-            game = SimulatedGameState(legal_guesses = words.guesses, legal_answers = words.answers)
             while not game.game_over():
                 guess =  self.algorithm.get_next_answer(game)
                 game.add_guess(guess)
@@ -417,6 +422,7 @@ class SimulatedCmdLoop(cmd.Cmd):
                 self.stdout.write("We won! Number of guesses to solution was: {}\n".format(game.guess_number()))
             else:
                 self.stdout.write("We lost! Bummer. \n")
+            game.reset()
             sleep(5)
 
         stop = True
