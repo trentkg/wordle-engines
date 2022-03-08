@@ -5,6 +5,7 @@ import click
 import logging
 import random
 import colorama
+import ml
 from pprint import pformat
 from enum import Enum
 from english_words import english_words_lower_alpha_set
@@ -141,7 +142,7 @@ class GameState:
 
 class SimulatedGameState(GameState):
     def __init__(self, legal_guesses, legal_answers):
-        super(SimulatedGameState, self).__init__()
+        super().__init__()
         self.legal_guesses = legal_guesses
         self.legal_answers = legal_answers
         self.hidden_word = random.choice(self.legal_answers)
@@ -276,6 +277,23 @@ class SimpleRandomWordleAlgorithm(WordleAlgorithm):
         return random.choice(valid_answers)
 
 
+class QLearningWordleAlgorithm(WordleAlgorithm):
+    '''Chooses an answer based on its qLearning model'''
+    word_filter_class = BasicWordFilter
+
+    def __init__(self, state_file='artifacts/qlearning.pkl'):
+        super().__init__()
+        self.state_file = state_file
+        self.qlearn = ml.core.QLearningAlgorithm(state_file=state_file)
+
+    def guess(self, valid_answers, valid_guesses, game_state):
+        env = self._map_game_state(game_state)
+        return self.qlearn.predict(env)
+
+    def _map_game_state(self, game_state):
+        '''Transforms the game state into a gym.env.'''
+        return None
+
 class RandomWordleAlgorithm(SimpleRandomWordleAlgorithm):
     '''Chooses a random valid answer everytime, but uses wordles responses to narrow its decision'''
     word_filter_class = SmartWordFilter
@@ -326,6 +344,36 @@ class WordleMenu(cmd.Cmd):
     "'simulate <Num Games>' to watch the engine play <Num Games>. Ctrl+c' to quit.\n"
     prompt = '(menu)'
     file = None
+
+    def do_qlearning(self, arg):
+        '''Use a simple qlearning algorithm'''
+        args = arg.split()
+        kwargs = { 
+                'name': 'QLearningAlgo', 
+                'prompt': '(qlearn-engine)'
+                }
+        if len(args):
+            cmd = args[0] 
+            if  cmd == 'simulate':
+                num_games = int(args[1])
+                kwargs['num_games'] = num_games
+                kwargs['algorithm'] : QLearningWordleAlgorithm()
+                SimulatedCmdLoop(**kwargs).cmdloop()
+            elif cmd == 'train':
+                num_games = int(args[1])
+                kwargs['num_games'] = num_games
+                kwargs['algorithm'] = ml.core.QLearningAlgorithm
+                TrainingCmdLoop(**kwargs).cmdloop()
+
+            else:
+                kwargs['game_state'] = GameState()
+                kwargs['algorithm'] : QLearningWordleAlgorithm()
+
+                ManualCmdLoop(**kwargs).cmdloop()
+
+        return False 
+
+
 
     def do_simplerandom(self, arg):
         '''Use the simplist engine, 
@@ -388,7 +436,7 @@ class WordleMenu(cmd.Cmd):
 
 class SimulatedCmdLoop(cmd.Cmd):
     def __init__(self, algorithm, name, prompt, num_games):
-        super(SimulatedCmdLoop,self).__init__()
+        super().__init__()
         self.algorithm = algorithm
         self.name = name
         self.prompt = prompt
@@ -428,12 +476,28 @@ class SimulatedCmdLoop(cmd.Cmd):
         stop = True
         return stop
 
+class TrainingCmdLoop(cmd.Cmd):
+    def __init__(self, algorithm, name, prompt, num_games):
+        super().__init__()
+        self.algorithm = algorithm
+        self.name = name
+        self.prompt = prompt
+        self.num_games = num_games
+
+    def preloop(self):
+        self.stdout.write('Training started! {} games will play.\n'.format(self.num_games))
+
+    def onecmd(self, line):
+        self.algorithm.train(num_episodes=self.num_games)
+        stop = True
+        return stop
+
 
 class ManualCmdLoop(cmd.Cmd):
     prompt = None 
 
     def __init__(self, algorithm, game_state, name, prompt):
-        super(ManualCmdLoop,self).__init__()
+        super().__init__()
         self.algorithm = algorithm
         self.game = game_state
         self.name = name
