@@ -304,7 +304,7 @@ class RandomWordleAlgorithm(SimpleRandomWordleAlgorithm):
     '''Chooses a random valid answer everytime, but uses wordles responses to narrow its decision'''
     word_filter_class = SmartWordFilter
 
-class TrentsWordleAlgorithm(WordleAlgorithm):
+class SaletsWordleAlgorithm(WordleAlgorithm):
     '''
     Uses a hardcoded first guess.
     '''
@@ -404,13 +404,13 @@ class WordleMenu(cmd.Cmd):
 
         return False 
 
-    def do_trent(self, arg):
-        '''Use an algorithm of my design, see source code for examples 
+    def do_salet(self, arg):
+        '''Use an algorithm with a hardcoded first guess ('salet') 
         '''
         args = arg.split()
-        kwargs = {'algorithm': TrentsWordleAlgorithm(), 
-                'name': 'TrentsAlgo', 
-                'prompt': '(trents-engine)'
+        kwargs = {'algorithm': SaletsWordleAlgorithm(), 
+                'name': 'SaletAlgo', 
+                'prompt': '(salet-engine)'
                 }
         if len(args):
             if args[0] == 'simulate':
