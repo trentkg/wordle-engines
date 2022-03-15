@@ -6,6 +6,8 @@ import logging
 import random
 import colorama
 import ml
+import gym
+import gym_wordle
 from pprint import pformat
 from enum import Enum
 from english_words import english_words_lower_alpha_set
@@ -291,7 +293,11 @@ class QLearningWordleAlgorithm(WordleAlgorithm):
         return self.qlearn.predict(env)
 
     def _map_game_state(self, game_state):
-        '''Transforms the game state into a gym.env.'''
+        '''Transforms the game state np array that mirrors the 
+        board in gym.make("Wordle-v0")'''
+        for guess, response in zip(game_state.guesses, game_state.responses):
+            raise RuntimeError("you haven't finished this yet")
+
         return None
 
 class RandomWordleAlgorithm(SimpleRandomWordleAlgorithm):
@@ -300,9 +306,7 @@ class RandomWordleAlgorithm(SimpleRandomWordleAlgorithm):
 
 class TrentsWordleAlgorithm(WordleAlgorithm):
     '''
-    Tries to use heuristics to find the right word, such as having a hardcoded first guess
-    and only using the set of valid answers as the remaining guesses becomes small
-
+    Uses a hardcoded first guess.
     '''
     word_filter_class = SmartWordFilter
 
@@ -314,29 +318,14 @@ class TrentsWordleAlgorithm(WordleAlgorithm):
         if remaining_guesses == 6:
             # Some mathemtician online found this to be the best first guess
             this_guess = 'salet'
-
-        elif remaining_guesses == 5:
-            # We should be using most probably guesses here 
-            this_guess = random.choice(valid_guesses)
-        elif remaining_guesses == 4:
-            this_guess = random.choice(valid_guesses)
-        elif remaining_guesses == 3:
-            this_guess = random.choice(valid_guesses)
-        elif remaining_guesses == 2:
-            # this is no different than RandomWordleAlgorithm
+        else: 
             this_guess = random.choice(valid_answers)
-        elif remaining_guesses == 1:
-            # Same as above
-            this_guess = random.choice(valid_answers)
-        else:
-            raise AssertionError("Game is over, no more guesses left!")
 
         return this_guess
 
 class ReinforcementLearningWordleAlgorithm(WordleAlgorithm):
     '''Uses reinforcement learning to find the best way to choose a word.'''
     pass
-
 
 
 class WordleMenu(cmd.Cmd):
