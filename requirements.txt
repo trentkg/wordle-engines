@@ -6,5 +6,4 @@ colorama==0.4.4
 numpy
 gym
 matplotlib
-plotting
 gym_wordle
