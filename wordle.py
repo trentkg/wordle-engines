@@ -8,6 +8,7 @@ import colorama
 import ml
 import gym
 import gym_wordle
+import numpy as np
 from pprint import pformat
 from enum import Enum
 from english_words import english_words_lower_alpha_set
@@ -282,6 +283,7 @@ class SimpleRandomWordleAlgorithm(WordleAlgorithm):
 class QLearningWordleAlgorithm(WordleAlgorithm):
     '''Chooses an answer based on its qLearning model'''
     word_filter_class = BasicWordFilter
+    gym_guesslist = gym_wordle.wordle.GuessList()
 
     def __init__(self, state_file='artifacts/qlearning.pkl'):
         super().__init__()
@@ -290,15 +292,48 @@ class QLearningWordleAlgorithm(WordleAlgorithm):
 
     def guess(self, valid_answers, valid_guesses, game_state):
         env = self._map_game_state(game_state)
-        return self.qlearn.predict(env)
+        word_as_int = self.qlearn.predict(env)
+        word_as_array = self.gym_guesslist[word_as_int]
+        word = gym_wordle.utils.to_english(word_as_array)
+        
+        return word
 
     def _map_game_state(self, game_state):
-        '''Transforms the game state np array that mirrors the 
-        board in gym.make("Wordle-v0")'''
-        for guess, response in zip(game_state.guesses, game_state.responses):
-            raise RuntimeError("you haven't finished this yet")
+        '''
+        Transforms the game state into an np array that mirrors the 
+        board in gym.make("Wordle-v0")
+        '''
+        n_rounds = 6
+        n_letters = 5
+        
+        no_char = 0
+        right_pos = 1
+        wrong_pos = 2
+        wrong_char = 3
 
-        return None
+        # 6 x 10 board
+        gym_state = np.zeros((n_rounds, 2 * n_letters),
+                              dtype=np.int64)
+        
+        game_round = 0
+        for guess, response in zip(game_state.guesses, game_state.responses):
+            # populate the word chars into the row (character channel)
+            gym_state[game_round][:n_letters] = gym_wordle.utils.to_array(guess)
+            # populate the flag characters into the row (flag channel)
+            for i, color in enumerate(response.colors):
+                num = None 
+                if color == WordleColor.GREEN:
+                    num = right_pos
+                elif color == WordleColor.YELLOW:
+                    num = wrong_pos
+                elif color == WordleColor.BLACK:
+                    num = wrong_char
+                else: 
+                    raise Exception("Unknown color: " + str(color))
+                gym_state[game_round][n_letters + i] = num
+            game_round +=1
+
+        return gym_state 
 
 class RandomWordleAlgorithm(SimpleRandomWordleAlgorithm):
     '''Chooses a random valid answer everytime, but uses wordles responses to narrow its decision'''
@@ -353,12 +388,13 @@ class WordleMenu(cmd.Cmd):
                 kwargs['num_games'] = num_games
                 kwargs['algorithm'] = ml.core.QLearningAlgorithm
                 TrainingCmdLoop(**kwargs).cmdloop()
-
             else:
-                kwargs['game_state'] = GameState()
-                kwargs['algorithm'] : QLearningWordleAlgorithm()
+                raise Exception("Unknown command: {}".format(cmd))
 
-                ManualCmdLoop(**kwargs).cmdloop()
+        else:
+            kwargs['game_state'] = GameState()
+            kwargs['algorithm'] = QLearningWordleAlgorithm()
+            ManualCmdLoop(**kwargs).cmdloop()
 
         return False 
 
