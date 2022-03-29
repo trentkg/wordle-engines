@@ -381,7 +381,7 @@ class WordleMenu(cmd.Cmd):
             if  cmd == 'simulate':
                 num_games = int(args[1])
                 kwargs['num_games'] = num_games
-                kwargs['algorithm'] : QLearningWordleAlgorithm()
+                kwargs['algorithm'] = QLearningWordleAlgorithm()
                 SimulatedCmdLoop(**kwargs).cmdloop()
             elif cmd == 'train':
                 num_games = int(args[1])

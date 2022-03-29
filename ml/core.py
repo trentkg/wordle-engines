@@ -55,7 +55,14 @@ class QLearningAlgorithm:
 
             action_probabilities = np.ones(num_actions,
                     dtype = float) * epsilon / num_actions
-            best_action = np.argmax(q_matrix[state.tobytes()])
+            choices = q_matrix[state.tobytes()]
+            # previously we used the following code to find the best action:
+            # best_action = np.argmax(q_matrix[state.tobytes()])
+            # but argmax provides the 0th index item in the case when all are ties.
+            # this means when the algorithm is starting out, there is a heavy bias towards
+            # the first choice, which is bad. so instead in the case of ties, 
+            # we choose a random element from the list of ties.
+            best_action = np.random.choice(np.where(choices == choices.max())[0])
             action_probabilities[best_action] += (1.0 - epsilon)
             return action_probabilities
 
@@ -73,6 +80,8 @@ class QLearningAlgorithm:
                 action = self.predict(state)
         
                 next_state, reward, done, _ = env.step(action)
+                if done and reward == 0: # we lost
+                    reward = -1
 
                 best_next_action = np.argmax(self.q_matrix[next_state.tobytes()])    
                 td_target = reward + discount_factor * self.q_matrix[next_state.tobytes()][best_next_action]
