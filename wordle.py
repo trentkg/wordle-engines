@@ -13,6 +13,7 @@ from pprint import pformat
 from enum import Enum
 from english_words import english_words_lower_alpha_set
 from time import sleep
+from functools import cache
 
 FORMAT = '%(message)s'
 logging.basicConfig(format=FORMAT)
@@ -47,17 +48,31 @@ class WordCollection:
         else: 
             raise ValueError("Unknown type of word collection: {}".format(_type)) 
 
+        self.guesses = tuple(self.guesses)
+        self.answers = tuple(self.answers)
+
 class WordleResponse:
     def __init__(self, colors):
         assert len(colors) == 5, 'Not enough color blocks in wordle response! There must be 5.'
-        self.colors = colors
+        self.colors = tuple(colors) 
 
     def is_correct(self):
         return all(x == WordleColor.GREEN for x in self.colors)
 
     def __repr__(self):
         return pformat(self.colors) 
-   
+
+    def __eq__(self, other):
+        if not isinstance(other, WordleResponse):
+            return False
+
+        if self is other:
+            return True
+
+        return self.colors == other.colors
+    
+    def __hash__(self):
+        return hash(self.colors)
 
 class InvalidGameStateError(RuntimeError):
     def __init__(self, message):
@@ -144,22 +159,30 @@ class GameState:
         return len(self.guesses)
 
 class SimulatedGameState(GameState):
-    def __init__(self, legal_guesses, legal_answers):
+    def __init__(self, legal_guesses, legal_answers, hidden_word = None):
         super().__init__()
         self.legal_guesses = legal_guesses
         self.legal_answers = legal_answers
-        self.hidden_word = random.choice(self.legal_answers)
+        if hidden_word is None:
+            self.hidden_word = random.choice(self.legal_answers)
+        else:
+            self.hidden_word = hidden_word
 
     def simulate_response(self, guess):
-        colors = list()
-        for index, letter in enumerate(guess):
-            if letter == self.hidden_word[index]:
-                colors.append(WordleColor.GREEN)
-            elif letter in self.hidden_word:
-                colors.append(WordleColor.YELLOW)
-            else:
-                colors.append(WordleColor.BLACK)
-        return WordleResponse(colors)
+        return create_wordle_response(self.hidden_word, guess)
+
+@cache
+def create_wordle_response(hidden_word,guess):
+    colors = list()
+    for index, letter in enumerate(guess):
+        if letter == hidden_word[index]:
+            colors.append(WordleColor.GREEN)
+        elif letter in hidden_word:
+            colors.append(WordleColor.YELLOW)
+        else:
+            colors.append(WordleColor.BLACK)
+    return WordleResponse(colors)
+
 
 class BadFormatError(Exception):
     '''Raised when an answer to a prompt is poorly formatted.'''
@@ -352,11 +375,35 @@ class SaletsWordleAlgorithm(WordleAlgorithm):
 
         if remaining_guesses == 6:
             # Some mathemtician online found this to be the best first guess
+            # most likely this word just has very high entropy.
             this_guess = 'salet'
         else: 
             this_guess = random.choice(valid_answers)
 
         return this_guess
+
+
+class EntropyWordleAlgorithm(WordleAlgorithm):
+    '''
+    Chooses the highest entropy word out of the guesslist until there is only 1 possible solution 
+    '''
+    word_filter_class = SmartWordFilter
+
+    def guess(self, valid_answers, valid_guesses, game_state):
+        if len(valid_answers) == 1:
+            return valid_answers[0]
+
+        # If using hard mode, we should be using valid_answers only here.
+        entropies = ml.entropy.get_all_entropy(self.legal_guesses, tuple(valid_answers))
+        # entropies = [(word, entropy), (word, entropy), ...]
+        # Sort by their entropy, the second key
+        entropies.sort(key=lambda x: x[1], reverse=True)
+
+        # choose the highest entropy word
+        this_guess = entropies[0] 
+
+        return this_guess
+
 
 class ReinforcementLearningWordleAlgorithm(WordleAlgorithm):
     '''Uses reinforcement learning to find the best way to choose a word.'''
@@ -398,7 +445,25 @@ class WordleMenu(cmd.Cmd):
 
         return False 
 
+    def do_entropy(self, arg):
+        '''Use information theory to choose the best word.'''
+        args = arg.split()
+        kwargs = {'algorithm': EntropyWordleAlgorithm(), 
+                'name': 'Entropy', 
+                'prompt': '(entropy-engine)'
+                }
+        if len(args):
+            if args[0] == 'simulate':
+                num_games = int(args[1])
+                kwargs['_type'] = 'simulate'
+                kwargs['num_games'] = num_games
+                kwargs['num_games'] = num_games
+                SimulatedCmdLoop(**kwargs).cmdloop()
+        else:
+            kwargs['game_state'] = GameState()
+            ManualCmdLoop(**kwargs).cmdloop()
 
+        return False 
 
     def do_simplerandom(self, arg):
         '''Use the simplist engine, 
@@ -530,8 +595,8 @@ class ManualCmdLoop(cmd.Cmd):
 
     def preloop(self):
         if self.game.is_first_move(): # this should always be true
-            first_guess = self.algorithm.get_next_answer(self.game)
             self.stdout.write('Lets play! {}\'s first guess is: '.format(self.name) + '\n')
+            first_guess = self.algorithm.get_next_answer(self.game)
             self.stdout.write(first_guess + '\n')
             self.game.add_guess(first_guess)
             self.stdout.write("What is wordle's response?\n")
