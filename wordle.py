@@ -394,13 +394,13 @@ class EntropyWordleAlgorithm(WordleAlgorithm):
             return valid_answers[0]
 
         # If using hard mode, we should be using valid_answers only here.
-        entropies = ml.entropy.get_all_entropy(self.legal_guesses, tuple(valid_answers))
+        entropies = ml.entropy.get_all_entropy(self.legal_guesses, tuple(valid_answers), processes=4)
         # entropies = [(word, entropy), (word, entropy), ...]
         # Sort by their entropy, the second key
         entropies.sort(key=lambda x: x[1], reverse=True)
 
         # choose the highest entropy word
-        this_guess = entropies[0] 
+        this_guess = entropies[0][0]
 
         return this_guess
 
