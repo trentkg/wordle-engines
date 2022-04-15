@@ -30,26 +30,27 @@ class WordCollection:
 
     def __init__(self, _type = 'wordle-words'):
         if  _type == 'all-english-words':
-            self.guesses = [x for x in english_words_lower_alpha_set if len(x) == 5]
-            self.answers = self.guesses
+            guesses = [x for x in english_words_lower_alpha_set if len(x) == 5]
+            answers = self.guesses
         elif _type == 'wordle-words':
-            self.guesses = list()
+            guesses = list()
             with open('artifacts/possible-wordle-answers.txt') as f1:
                 for line in f1:
                     word = line.strip().lower()
                     if len(word) == 5:
-                        self.guesses.append(word)
-            self.answers = list()
+                        guesses.append(word)
+            answers = list()
             with open('artifacts/all-possible-wordle-answers-easy.txt') as f2:
                 for line in f2:
                     word = line.strip().lower()
                     if len(word) == 5:
-                        self.answers.append(word)
+                        answers.append(word)
         else: 
             raise ValueError("Unknown type of word collection: {}".format(_type)) 
-
-        self.guesses = tuple(self.guesses)
-        self.answers = tuple(self.answers)
+        guesses.sort()
+        answers.sort()
+        self.guesses = tuple(guesses)
+        self.answers = tuple(answers)
 
 class WordleResponse:
     def __init__(self, colors):
@@ -232,7 +233,7 @@ class SmartWordFilter(WordFilter):
         assert len(game_state.responses) == len(game_state.guesses), "Games responses and guesses are not equal! GameState is: {}".format(str(game_state))
 
         if game_state.is_first_move():
-            return self.legal_guesses
+            return self.legal_answers
        
         # words that pass all of the conditions in wordles responses
         valid_words = list()
@@ -242,7 +243,8 @@ class SmartWordFilter(WordFilter):
                 valid_words.append(word)
         
         assert len(valid_words) > 0, 'No valid words found!'
-        return valid_words 
+        valid_words.sort()
+        return tuple(valid_words)
 
     def _is_valid_word(self, responses, guesses, word):
         for wordle_response, guess in zip(responses, guesses):
@@ -283,11 +285,13 @@ class WordleAlgorithm:
 
         self.legal_answers = legal_answers
         self.legal_guesses = legal_guesses
-        self.word_filter = self.word_filter_class(legal_guesses, legal_answers)
+        self.word_filter = self.word_filter_class(legal_guesses=legal_guesses, 
+                legal_answers=legal_answers)
 
     def get_next_answer(self, game_state):
         valid_answers = self.get_possible_answers(game_state)
-        return self.guess(valid_answers, self.legal_guesses, game_state)
+        return self.guess(valid_answers=valid_answers, 
+                valid_guesses=self.legal_guesses, game_state=game_state)
 
     def get_possible_answers(self, game_state):
         return self.word_filter.get_possible_words(game_state)
@@ -393,8 +397,7 @@ class EntropyWordleAlgorithm(WordleAlgorithm):
         if len(valid_answers) == 1:
             return valid_answers[0]
 
-        # If using hard mode, we should be using valid_answers only here.
-        entropies = ml.entropy.get_all_entropy(self.legal_guesses, tuple(valid_answers), processes=4)
+        entropies = ml.entropy.get_all_entropy(guess_list=self.legal_guesses, solution_list=valid_answers, processes=4)
         # entropies = [(word, entropy), (word, entropy), ...]
         # Sort by their entropy, the second key
         entropies.sort(key=lambda x: x[1], reverse=True)

@@ -5,7 +5,7 @@ from joblib import Memory
 from multiprocessing import Pool
 from functools import partial
 
-memory = Memory('../artifacts', verbose=0)
+memory = Memory(location='artifacts', verbose=0)
 
 def get_entropy(guess, solution_list):
     response_frequency = defaultdict(lambda: 0) # wordle response -> frequency 
