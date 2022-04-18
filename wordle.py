@@ -458,7 +458,6 @@ class WordleMenu(cmd.Cmd):
         if len(args):
             if args[0] == 'simulate':
                 num_games = int(args[1])
-                kwargs['_type'] = 'simulate'
                 kwargs['num_games'] = num_games
                 kwargs['num_games'] = num_games
                 SimulatedCmdLoop(**kwargs).cmdloop()
