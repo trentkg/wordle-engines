@@ -166,12 +166,10 @@ class GameState:
         return len(self.guesses)
 
 class SimulatedGameState(GameState):
-    def __init__(self, legal_guesses, legal_answers, hidden_word = None, seed=None):
+    def __init__(self, legal_guesses, legal_answers, hidden_word = None):
         super().__init__()
         self.legal_guesses = legal_guesses
         self.legal_answers = legal_answers
-        if seed is not None:
-            random.seed(seed)
         if hidden_word is None:
             self.hidden_word = random.choice(self.legal_answers)
         else:
@@ -598,7 +596,7 @@ class GameStatistics:
                    }
                 )
         self.statistics = pd.DataFrame({
-            'Engine': pd.Series(dtype='str')
+            'Engine': pd.Series(dtype='str'),
             'Total Wins': pd.Series(dtype='int'),
             'Total Losses': pd.Series(dtype='int'),
             'Win %': pd.Series(dtype = 'float'),
@@ -657,8 +655,8 @@ def simulate_games(engine, engine_name, num_games):
                         logger.info(f"On game number {game_num}, three quarters finished...")
                         three_quarter_logged = True
 
-        seed = datetime.now().second
-        game = SimulatedGameState(legal_guesses = words.guesses, legal_answers = words.answers, seed=seed)
+        game = SimulatedGameState(legal_guesses = words.guesses, legal_answers = words.answers)
+        logger.debug("Hidden word is:" + game.hidden_word)
         while not game.game_over():
             guess =  engine.get_next_answer(game)
             game.add_guess(guess)
