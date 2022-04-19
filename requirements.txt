@@ -3,6 +3,7 @@ english-words==1.1.0
 pytest
 pandas==1.4.1
 colorama==0.4.4
+jinja2==3.1.1
 numpy
 gym
 matplotlib

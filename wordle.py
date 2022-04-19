@@ -9,11 +9,14 @@ import ml
 import gym
 import gym_wordle
 import numpy as np
+import pandas as pd
+from datetime import datetime
 from pprint import pformat
 from enum import Enum
 from english_words import english_words_lower_alpha_set
 from time import sleep
 from functools import cache
+from pprint import pformat
 
 FORMAT = '%(message)s'
 logging.basicConfig(format=FORMAT)
@@ -140,6 +143,9 @@ class GameState:
     def is_first_move(self):
         return len(self.guesses) == 0 
 
+    def num_guesses(self):
+        return len(self.guesses)
+
     def any_rounds_remaining(self): 
         return self.max_rounds > len(self.guesses) or \
                 self.max_rounds > len(self.responses)
@@ -160,10 +166,12 @@ class GameState:
         return len(self.guesses)
 
 class SimulatedGameState(GameState):
-    def __init__(self, legal_guesses, legal_answers, hidden_word = None):
+    def __init__(self, legal_guesses, legal_answers, hidden_word = None, seed=None):
         super().__init__()
         self.legal_guesses = legal_guesses
         self.legal_answers = legal_answers
+        if seed is not None:
+            random.seed(seed)
         if hidden_word is None:
             self.hidden_word = random.choice(self.legal_answers)
         else:
@@ -413,11 +421,66 @@ class ReinforcementLearningWordleAlgorithm(WordleAlgorithm):
     pass
 
 
+def compute_statistics(ntrials, engines):
+    '''
+    ntrials -> integer > 0 
+    engines -> list of strings, each one an engine
+    '''
+    # find a way not to hardcode this....
+    known = ('qlearning', 'random', 'simplerandom', 'salet', 'entropy')
+    for engine in engines:
+        if engine not in known:
+            logger.error(f"Unknown engine '{engine}'. Can't compute statistics!")
+            return None
+    statistics = list()
+
+    if 'salet' in engines:
+        engine = SaletsWordleAlgorithm()
+        name = 'Salet-Engine'
+        stats = simulate_games(engine, name,ntrials)
+        statistics.append(stats)
+    if 'simplerandom' in engines:
+        pass
+    if 'entropy' in engines:
+        engine = EntropyWordleAlgorithm()
+        name = 'Entropy-Engine'
+        stats = simulate_games(engine, name,ntrials)
+        statistics.append(stats)
+    return statistics 
+
 class WordleMenu(cmd.Cmd):
     intro = "Welcome to WordleEngine! Type 'help' or '?' to see a list of worlde engines. Type the engine name to use an engine to play. Type the engine name plus " + \
     "'simulate <Num Games>' to watch the engine play <Num Games>. Ctrl+c' to quit.\n"
     prompt = '(menu)'
     file = None
+
+    def do_statistics(self, arg):
+        '''Compute statistics for one or more engines'''
+        args = arg.split()
+        if not len(args):
+            logger.error("No arguments provided!")
+            return False
+
+        _ntrials = args[0]
+        try:
+            ntrials = int(_ntrials)
+        except ValueError as e:
+            logger.error(f"The number of trials must be an integer! You gave: '{_ntrials}'")
+            return False
+        if ntrials <=0:
+            logger.error(f"The number of trials must be greater than 0! You gave: {ntrials}")
+            return False
+
+        engines = args[1:]
+        if not len(engines):
+            logger.error("You must give a number of engines!")
+            return False
+        
+        stats = compute_statistics(ntrials, engines)
+        for statistic in stats:
+            logger.info(statistic)
+        return False
+            
 
     def do_qlearning(self, arg):
         '''Use a simple qlearning algorithm'''
@@ -525,6 +588,88 @@ class WordleMenu(cmd.Cmd):
             ManualCmdLoop(**kwargs).cmdloop()
 
         return False 
+
+class GameStatistics:
+    def __init__(self, name):
+        self.name = name
+        self.observations = pd.DataFrame({
+                    'Won': pd.Series(dtype='bool'),
+                   'Rounds': pd.Series(dtype='int')
+                   }
+                )
+        self.statistics = pd.DataFrame({
+            'Engine': pd.Series(dtype='str')
+            'Total Wins': pd.Series(dtype='int'),
+            'Total Losses': pd.Series(dtype='int'),
+            'Win %': pd.Series(dtype = 'float'),
+            'Average Rounds to Win (ARW)': pd.Series('float'),
+            'ARW StdDev': pd.Series('float')
+            }) 
+
+    def add_observation(self, won, rounds):
+        n = len(self.observations.index)
+        if not won:
+            assert rounds == 6, 'Lost in fewer than 6 rounds!'
+        self.observations.loc[n] = [won, rounds] 
+
+    def get_observations(self):
+        return self.observations
+
+    def get_statistics(self):
+        return self.statistics
+
+    def compute(self):
+        count = float(len(self.observations))
+        summary =  self.observations.where(self.observations.Won).agg({'Won': ['count'], 'Rounds': ['mean', 'median', 'std']})
+        summary = summary.to_dict()
+        total_wins = summary['Won']['count']
+        total_losses = count - total_wins 
+        win_perc = total_wins / count
+        avg_rounds_per_win = summary['Rounds']['mean']
+        win_stdev = summary['Rounds']['mean']
+        self.statistics.loc[0] = [self.name, total_wins, total_losses, win_perc, avg_rounds_per_win, win_stdev] 
+
+    def __repr__(self):
+        return self.statistics.__repr__()
+
+def simulate_games(engine, engine_name, num_games):
+    words = WordCollection()
+    stats = GameStatistics(name=engine_name)
+    logger.info(f"Playing {num_games} games for {engine_name}...")
+    quarter = num_games*.25
+    quarter_logged = False
+    halfway = num_games*.5
+    half_logged = False
+    three_quarters = num_games*.75
+    three_quarter_logged = False
+    game_num = 0
+    while game_num < num_games:
+        if game_num > quarter:
+            if not quarter_logged:
+                logger.info(f"On game number {game_num}, One quarter finished...")
+                quarter_logged = True
+            if game_num > halfway:
+                if not half_logged:
+                    logger.info(f"On game number {game_num}, halfway finished...")
+                    half_logged = True
+                if game_num > three_quarters:
+                    if not three_quarter_logged:
+                        logger.info(f"On game number {game_num}, three quarters finished...")
+                        three_quarter_logged = True
+
+        seed = datetime.now().second
+        game = SimulatedGameState(legal_guesses = words.guesses, legal_answers = words.answers, seed=seed)
+        while not game.game_over():
+            guess =  engine.get_next_answer(game)
+            game.add_guess(guess)
+            response = game.simulate_response(guess)
+            game.add_response(response)
+        stats.add_observation(game.is_won(), game.num_guesses())
+        game_num +=1
+    logger.info(f"Done playing {num_games} games for {engine_name}.")
+    stats.compute()
+    return stats
+
 
 class SimulatedCmdLoop(cmd.Cmd):
     def __init__(self, algorithm, name, prompt, num_games):
