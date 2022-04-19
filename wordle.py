@@ -438,13 +438,27 @@ def compute_statistics(ntrials, engines):
         stats = simulate_games(engine, name,ntrials)
         statistics.append(stats)
     if 'simplerandom' in engines:
-        pass
+        engine = SimpleRandomWordleAlgorithm()
+        name = 'Simple-Random-Engine'
+        stats = simulate_games(engine, name,ntrials)
+        statistics.append(stats)
+
+    if 'random' in engines:
+        engine = RandomWordleAlgorithm()
+        name = 'Random-Engine'
+        stats = simulate_games(engine, name,ntrials)
+        statistics.append(stats)
+
+    if 'qlearning' in engines:
+        logger.error("Can't do 'qlearning,' this algo sucks")
+
     if 'entropy' in engines:
         engine = EntropyWordleAlgorithm()
         name = 'Entropy-Engine'
         stats = simulate_games(engine, name,ntrials)
         statistics.append(stats)
-    return statistics 
+    dfs = [x.get_statistics() for x in statistics]
+    return pd.concat(dfs) 
 
 class WordleMenu(cmd.Cmd):
     intro = "Welcome to WordleEngine! Type 'help' or '?' to see a list of worlde engines. Type the engine name to use an engine to play. Type the engine name plus " + \
@@ -474,9 +488,8 @@ class WordleMenu(cmd.Cmd):
             logger.error("You must give a number of engines!")
             return False
         
-        stats = compute_statistics(ntrials, engines)
-        for statistic in stats:
-            logger.info(statistic)
+        statistics_table = compute_statistics(ntrials, engines)
+        logger.info(statistics_table)
         return False
             
 
