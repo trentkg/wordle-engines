@@ -624,7 +624,7 @@ class GameStatistics:
         total_losses = count - total_wins 
         win_perc = total_wins / count
         avg_rounds_per_win = summary['Rounds']['mean']
-        win_stdev = summary['Rounds']['mean']
+        win_stdev = summary['Rounds']['std']
         self.statistics.loc[0] = [self.name, total_wins, total_losses, win_perc, avg_rounds_per_win, win_stdev] 
 
     def __repr__(self):
