@@ -4,6 +4,7 @@ pytest
 pandas==1.4.1
 colorama==0.4.4
 jinja2==3.1.1
+tqdm==4.64.0
 numpy
 gym
 matplotlib

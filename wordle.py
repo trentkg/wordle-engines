@@ -17,6 +17,7 @@ from english_words import english_words_lower_alpha_set
 from time import sleep
 from functools import cache
 from pprint import pformat
+from tqdm import trange
 
 FORMAT = '%(message)s'
 logging.basicConfig(format=FORMAT)
@@ -681,21 +682,8 @@ def simulate_games(engine, engine_name, num_games):
     half_logged = False
     three_quarters = num_games*.75
     three_quarter_logged = False
-    game_num = 0
-    while game_num < num_games:
-        if game_num > quarter:
-            if not quarter_logged:
-                logger.info(f"On game number {game_num}, One quarter finished...")
-                quarter_logged = True
-            if game_num > halfway:
-                if not half_logged:
-                    logger.info(f"On game number {game_num}, halfway finished...")
-                    half_logged = True
-                if game_num > three_quarters:
-                    if not three_quarter_logged:
-                        logger.info(f"On game number {game_num}, three quarters finished...")
-                        three_quarter_logged = True
-
+    # Creates a progress bar 
+    for _ in trange(num_games):
         game = SimulatedGameState(legal_guesses = words.guesses, legal_answers = words.answers)
         logger.debug("Hidden word is:" + game.hidden_word)
         while not game.game_over():
@@ -704,7 +692,6 @@ def simulate_games(engine, engine_name, num_games):
             response = game.simulate_response(guess)
             game.add_response(response)
         stats.add_observation(game.is_won(), game.num_guesses())
-        game_num +=1
     logger.info(f"Done playing {num_games} games for {engine_name}.")
     stats.compute()
     return stats
