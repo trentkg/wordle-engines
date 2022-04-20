@@ -442,6 +442,29 @@ class SimpleEntropyWordleAlgorithm(WordleAlgorithm):
 
         return this_guess
 
+class SmartEntropyWordleAlgorithm(WordleAlgorithm):
+    '''
+    Chooses the highest entropy word out of the *solution list* until there is only 1 possible solution, or we guess the word. 
+    In this way we always give ourselves the chance to guess the hidden word, unlike SimpleEntropyWordleAlgorithm where we can only guess the
+    hidden word if there is one word left or if our highest entropy word is in the solution list.
+    '''
+    word_filter_class = SmartWordFilter
+
+    def guess(self, valid_answers, valid_guesses, game_state):
+        if len(valid_answers) == 1:
+            return valid_answers[0]
+
+        entropies = ml.entropy.get_all_entropy(guess_list=valid_answers, solution_list=valid_answers, processes=4)
+        # entropies = [(word, entropy), (word, entropy), ...]
+        # Sort by their entropy, the second key
+        entropies.sort(key=lambda x: x[1], reverse=True)
+
+        # choose the highest entropy word
+        this_guess = entropies[0][0]
+
+        return this_guess
+
+
 
 class ReinforcementLearningWordleAlgorithm(WordleAlgorithm):
     '''Uses reinforcement learning to find the best way to choose a word.'''
@@ -552,7 +575,11 @@ class WordleMenu(cmd.Cmd):
         return False 
 
     def do_simpleentropy(self, arg):
-        '''Use information theory to choose the best word.'''
+        '''
+        Use information theory to choose the best word. In this case, 
+        we are always choosing the highest entropy guess until there is only 1 possible
+        solution left.
+        '''
         args = arg.split()
         kwargs = {'algorithm': SimpleEntropyWordleAlgorithm(), 
                 'name': 'Simple-Entropy', 
@@ -569,6 +596,28 @@ class WordleMenu(cmd.Cmd):
             ManualCmdLoop(**kwargs).cmdloop()
 
         return False 
+
+    def do_smartentropy(self, arg):
+        '''A smarter entropy solution. Here we are always choosing the highest entropy
+        *solution* word, so we always give ourselves a chance (albeit at times small) of 
+        guessing the hidden word.'''
+        args = arg.split()
+        kwargs = {'algorithm': SmartEntropyWordleAlgorithm(), 
+                'name': 'Smart-Entropy', 
+                'prompt': '(smart-entropy-engine)'
+                }
+        if len(args):
+            if args[0] == 'simulate':
+                num_games = int(args[1])
+                kwargs['num_games'] = num_games
+                kwargs['num_games'] = num_games
+                SimulatedCmdLoop(**kwargs).cmdloop()
+        else:
+            kwargs['game_state'] = GameState()
+            ManualCmdLoop(**kwargs).cmdloop()
+
+        return False 
+
 
     def do_simplerandom(self, arg):
         '''Use the simplist engine, 
