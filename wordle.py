@@ -60,6 +60,24 @@ class WordleResponse:
         assert len(colors) == 5, 'Not enough color blocks in wordle response! There must be 5.'
         self.colors = tuple(colors) 
 
+    @classmethod
+    def from_letters(cls, letters):
+        colors = list()
+        assert len(letters) == 5, 'Each wordle response must be 5 letters.'
+        for _letter in letters:
+            letter = _letter.lower()
+            if letter == 'b':
+                color = WordleColor.BLACK
+            elif letter == 'g':
+                color = WordleColor.GREEN
+            elif letter == 'y':
+                color = WordleColor.YELLOW
+            else:
+                raise Exception("Unknown letter {letter}. Should be either\
+                        'b' (black) 'g' (green) or 'y' (yellow)")
+            colors.append(color)
+        return cls(colors)
+
     def is_correct(self):
         return all(x == WordleColor.GREEN for x in self.colors)
 
@@ -181,13 +199,23 @@ class SimulatedGameState(GameState):
 @cache
 def create_wordle_response(hidden_word,guess):
     colors = list()
+    possible_yellows = hidden_word
+
+    # Handle all the green letters first
     for index, letter in enumerate(guess):
+        
         if letter == hidden_word[index]:
             colors.append(WordleColor.GREEN)
-        elif letter in hidden_word:
-            colors.append(WordleColor.YELLOW)
+            possible_yellows = possible_yellows.replace(letter, '')
         else:
             colors.append(WordleColor.BLACK)
+
+    # Then go back through and handle the yellows 
+    for index, letter in enumerate(guess):
+        if letter in possible_yellows and letter != hidden_word[index]:
+            possible_yellows = possible_yellows.replace(letter, '', 1)
+            colors[index] = WordleColor.YELLOW
+            
     return WordleResponse(colors)
 
 
