@@ -477,7 +477,7 @@ def compute_statistics(ntrials, engines):
     engines -> list of strings, each one an engine
     '''
     # find a way not to hardcode this....
-    known = ('qlearning', 'smartrandom', 'simplerandom', 'salet', 'entropy')
+    known = ('qlearning', 'smartrandom', 'simplerandom', 'salet', 'simpleentropy', 'smartentropy')
     for engine in engines:
         if engine not in known:
             logger.error(f"Unknown engine '{engine}'. Can't compute statistics!")
@@ -503,6 +503,13 @@ def compute_statistics(ntrials, engines):
 
     if 'qlearning' in engines:
         logger.error("Can't do 'qlearning,' this algo sucks")
+
+    if 'smartentropy' in engines:
+        engine = SmartEntropyWordleAlgorithm()
+        name = 'Smart-Entropy-Engine'
+        stats = simulate_games(engine, name,ntrials)
+        statistics.append(stats)
+
 
     if 'simpleentropy' in engines:
         engine = SimpleEntropyWordleAlgorithm()
