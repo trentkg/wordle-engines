@@ -397,7 +397,7 @@ class QLearningWordleAlgorithm(WordleAlgorithm):
 
         return gym_state 
 
-class RandomWordleAlgorithm(SimpleRandomWordleAlgorithm):
+class SmartRandomWordleAlgorithm(SimpleRandomWordleAlgorithm):
     '''Chooses a random valid answer everytime, but uses wordles responses to narrow its decision'''
     word_filter_class = SmartWordFilter
 
@@ -422,7 +422,7 @@ class SaletsWordleAlgorithm(WordleAlgorithm):
         return this_guess
 
 
-class EntropyWordleAlgorithm(WordleAlgorithm):
+class SimpleEntropyWordleAlgorithm(WordleAlgorithm):
     '''
     Chooses the highest entropy word out of the guesslist until there is only 1 possible solution 
     '''
@@ -454,7 +454,7 @@ def compute_statistics(ntrials, engines):
     engines -> list of strings, each one an engine
     '''
     # find a way not to hardcode this....
-    known = ('qlearning', 'random', 'simplerandom', 'salet', 'entropy')
+    known = ('qlearning', 'smartrandom', 'simplerandom', 'salet', 'entropy')
     for engine in engines:
         if engine not in known:
             logger.error(f"Unknown engine '{engine}'. Can't compute statistics!")
@@ -472,18 +472,18 @@ def compute_statistics(ntrials, engines):
         stats = simulate_games(engine, name,ntrials)
         statistics.append(stats)
 
-    if 'random' in engines:
-        engine = RandomWordleAlgorithm()
-        name = 'Random-Engine'
+    if 'smartrandom' in engines:
+        engine = SmartRandomWordleAlgorithm()
+        name = 'Smart-Random-Engine'
         stats = simulate_games(engine, name,ntrials)
         statistics.append(stats)
 
     if 'qlearning' in engines:
         logger.error("Can't do 'qlearning,' this algo sucks")
 
-    if 'entropy' in engines:
-        engine = EntropyWordleAlgorithm()
-        name = 'Entropy-Engine'
+    if 'simpleentropy' in engines:
+        engine = SimpleEntropyWordleAlgorithm()
+        name = 'Simple-Entropy-Engine'
         stats = simulate_games(engine, name,ntrials)
         statistics.append(stats)
     dfs = [x.get_statistics() for x in statistics]
@@ -551,12 +551,12 @@ class WordleMenu(cmd.Cmd):
 
         return False 
 
-    def do_entropy(self, arg):
+    def do_simpleentropy(self, arg):
         '''Use information theory to choose the best word.'''
         args = arg.split()
-        kwargs = {'algorithm': EntropyWordleAlgorithm(), 
-                'name': 'Entropy', 
-                'prompt': '(entropy-engine)'
+        kwargs = {'algorithm': SimpleEntropyWordleAlgorithm(), 
+                'name': 'Simple-Entropy', 
+                'prompt': '(simple-entropy-engine)'
                 }
         if len(args):
             if args[0] == 'simulate':
@@ -591,11 +591,13 @@ class WordleMenu(cmd.Cmd):
 
         return False 
 
-    def do_random(self, arg):
-        '''Use a random engine that filters the possible wordset using wordle\'s previous responses.
+    def do_smartrandom(self, arg):
+        '''
+        Like a plain random engine, but "smarter" in that in chooses from the solution set
+        thats narrowed by wordle's responses. 
         '''
         args = arg.split()
-        kwargs = {'algorithm': RandomWordleAlgorithm(), 
+        kwargs = {'algorithm': SmartRandomWordleAlgorithm(), 
                 'name': 'RandomAlgo', 
                 'prompt': '(rand-engine)'
                 }
