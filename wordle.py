@@ -255,10 +255,12 @@ def passes_wordle_response(wordle_response, guess, word):
         word_letter = word[index]
         if guess_letter not in word_remaining:
             return False
-        our_yellow_count = word_remaining.count(guess_letter) 
-        their_yellow_count = guess_remaining.count(guess_letter) 
-        if our_yellow_count != their_yellow_count:
+        our_letter_count = word_remaining.count(guess_letter) 
+        their_letter_count = guess_remaining.count(guess_letter) 
+        if our_letter_count < their_letter_count:
             return False
+        # if equal, thats correct
+        # if greater, we may not have discovered that letter yet. 
 
     # finally the black squares
     for index in black_sq:
@@ -328,7 +330,11 @@ class SmartWordFilter(WordFilter):
             if self._is_valid_word(game_state.responses, game_state.guesses, word):
                 valid_words.append(word)
         
-        assert len(valid_words) > 0, 'No valid words found!'
+        if len(valid_words) <= 0:
+            hidden_word = 'not-sure-> Not a simulated Game'
+            if hasattr(game_state, 'hidden_word'):
+                hidden_word = game_state.hidden_word 
+            raise RuntimeError(f'No valid words found! Gamestate is: {game_state}. Hidden word is: {hidden_word}')
         valid_words.sort()
         return tuple(valid_words)
 

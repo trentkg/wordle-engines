@@ -1,4 +1,4 @@
-from wordle import GameState, WordleColor, WordleResponse, SmartWordFilter, WordCollection, SimulatedGameState
+from wordle import GameState, WordleColor, WordleResponse, SmartWordFilter, WordCollection
 
 def test_filter():
     legal_words = ['women','nikau','swack','feens','fyles','poled','clags','starn','sharn','woops']
@@ -13,7 +13,7 @@ def test_filter():
     game.add_guess('poled')
     response = WordleResponse(tuple(WordleColor.BLACK for x in range(5)))
     game.add_response(response)
-
+    
     second_set = set(word_filter.get_possible_words(game))
     second_expected_set = first_expected_set - set(['poled', 'women', 'fyles', 'woops', 'clags', 'feens',])
 
