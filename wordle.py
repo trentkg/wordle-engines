@@ -226,7 +226,7 @@ def passes_wordle_response(wordle_response, guess, word):
     that was made.
     '''
     green_sq = list()
-    yellow_sq = list()
+    yellow_sq = defaultdict(lambda: list()) # letter -> indexes
     black_sq = list()
     for index, color in enumerate(wordle_response.colors):
         if color == WordleColor.GREEN:
@@ -234,7 +234,8 @@ def passes_wordle_response(wordle_response, guess, word):
         elif color == WordleColor.BLACK:
             black_sq.append(index)
         elif color == WordleColor.YELLOW:
-            yellow_sq.append(index)
+            letter = guess[index]
+            yellow_sq[letter].append(index)
 
     word_remaining = word
     guess_remaining = guess
@@ -250,17 +251,14 @@ def passes_wordle_response(wordle_response, guess, word):
         guess_remaining = guess_remaining.replace(guess_letter, '', 1)
 
     # now we handle the yellow squares
-    for index in yellow_sq:
-        guess_letter = guess[index]
-        word_letter = word[index]
+    for guess_letter, indexes in yellow_sq.items():
         if guess_letter not in word_remaining:
             return False
         our_letter_count = word_remaining.count(guess_letter) 
-        their_letter_count = guess_remaining.count(guess_letter) 
+        their_letter_count = len(indexes) 
         if our_letter_count < their_letter_count:
             return False
-        # if equal, thats correct
-        # if greater, we may not have discovered that letter yet. 
+        word_remaining = word_remaining.replace(guess_letter, '', their_letter_count)
 
     # finally the black squares
     for index in black_sq:
