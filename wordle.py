@@ -18,6 +18,7 @@ from time import sleep
 from functools import cache
 from pprint import pformat
 from tqdm import trange
+from collections import defaultdict
 
 FORMAT = '%(message)s'
 logging.basicConfig(format=FORMAT)
@@ -207,7 +208,7 @@ def create_wordle_response(hidden_word,guess):
         
         if letter == hidden_word[index]:
             colors.append(WordleColor.GREEN)
-            possible_yellows = possible_yellows.replace(letter, '')
+            possible_yellows = possible_yellows.replace(letter, '', 1)
         else:
             colors.append(WordleColor.BLACK)
 
@@ -219,6 +220,56 @@ def create_wordle_response(hidden_word,guess):
             
     return WordleResponse(colors)
 
+def passes_wordle_response(wordle_response, guess, word):
+    '''
+    Checks if a word passes the conditions in WordleResponse given the guess 
+    that was made.
+    '''
+    green_sq = list()
+    yellow_sq = list()
+    black_sq = list()
+    for index, color in enumerate(wordle_response.colors):
+        if color == WordleColor.GREEN:
+            green_sq.append(index)
+        elif color == WordleColor.BLACK:
+            black_sq.append(index)
+        elif color == WordleColor.YELLOW:
+            yellow_sq.append(index)
+
+    word_remaining = word
+    guess_remaining = guess
+
+    # first we handle the green squares,
+    # removing green letters from the _remaining variables
+    for index in green_sq:
+        guess_letter = guess[index]
+        word_letter = word[index]
+        if guess_letter != word_letter:
+            return False
+        word_remaining = word_remaining.replace(guess_letter, '', 1)
+        guess_remaining = guess_remaining.replace(guess_letter, '', 1)
+
+    # now we handle the yellow squares
+    for index in yellow_sq:
+        guess_letter = guess[index]
+        word_letter = word[index]
+        if guess_letter not in word_remaining:
+            return False
+        our_yellow_count = word_remaining.count(guess_letter) 
+        their_yellow_count = guess_remaining.count(guess_letter) 
+        if our_yellow_count != their_yellow_count:
+            return False
+
+    # finally the black squares
+    for index in black_sq:
+        guess_letter = guess[index]
+        word_letter = word[index]
+        if guess_letter == word_letter:
+            return False
+        elif guess_letter in word_remaining: # Otherwise this letter would have gotten a yellow.
+            return False
+        
+    return True 
 
 class BadFormatError(Exception):
     '''Raised when an answer to a prompt is poorly formatted.'''
@@ -283,26 +334,10 @@ class SmartWordFilter(WordFilter):
 
     def _is_valid_word(self, responses, guesses, word):
         for wordle_response, guess in zip(responses, guesses):
-            if not self._passes_wordle_response(wordle_response, guess, word):
+            if not passes_wordle_response(wordle_response, guess, word):
                 return False
         return True
 
-    def _passes_wordle_response(self, wordle_response, guess, word):
-        '''Checks if a word passes the conditions in WordleResponse'''
-
-        for index, color in enumerate(wordle_response.colors):
-            guess_letter = guess[index]
-            word_letter = word[index]
-            if color == WordleColor.BLACK and guess_letter == word_letter:
-                return False
-            elif color == WordleColor.YELLOW:
-                if guess_letter == word_letter:
-                    return False
-                elif guess_letter not in word:
-                    return False
-            elif color == WordleColor.GREEN and guess_letter != word_letter:
-                return False
-        return True 
 
 
 class WordleAlgorithm:

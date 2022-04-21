@@ -15,7 +15,7 @@ def test_filter():
     game.add_response(response)
 
     second_set = set(word_filter.get_possible_words(game))
-    second_expected_set = first_expected_set - set(['poled', 'women', 'fyles', 'woops'])
+    second_expected_set = first_expected_set - set(['poled', 'women', 'fyles', 'woops', 'clags', 'feens',])
 
     assert second_set == second_expected_set 
 
@@ -199,7 +199,3 @@ def test_filter_always_returns_set_doesnt_break_with_real_wordle_example():
 
     sixth_set = word_filter.get_possible_words(game)
     assert len(sixth_set) > 0
-
-    final_set = word_filter.get_possible_words(game)
-    
-    assert len(final_set) > 0
