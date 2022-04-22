@@ -220,6 +220,7 @@ def create_wordle_response(hidden_word,guess):
             
     return WordleResponse(colors)
 
+@cache
 def passes_wordle_response(wordle_response, guess, word):
     '''
     Checks if a word passes the conditions in WordleResponse given the guess 
@@ -757,7 +758,7 @@ class GameStatistics:
 
     def compute(self):
         count = float(len(self.observations))
-        summary =  self.observations.where(self.observations.Won).agg({'Won': ['count'], 'Rounds': ['mean', 'median', 'std']})
+        summary =  self.observations.where(self.observations.Won).agg({'Won': ['count'], 'Rounds': ['mean', 'std']})
         summary = summary.to_dict()
         total_wins = summary['Won']['count']
         total_losses = count - total_wins 
