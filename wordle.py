@@ -61,6 +61,21 @@ class WordleResponse:
     def __init__(self, colors):
         assert len(colors) == 5, 'Not enough color blocks in wordle response! There must be 5.'
         self.colors = tuple(colors) 
+    
+    def as_letters(self):
+        letters = list()
+        for color in self.colors:
+            if color == WordleColor.BLACK:
+                letters.append('b')
+            elif color == WordleColor.GREEN:
+                letters.append('g')
+            elif color == WordleColor.YELLOW:
+                letters.append('y')
+            else:
+                raise Exception(f"Unknown color {color}")
+        return ''.join(letters)
+
+
 
     @classmethod
     def from_letters(cls, letters):
@@ -312,7 +327,7 @@ class BasicWordFilter(WordFilter):
 class SmartWordFilter(WordFilter):
     '''Filters possible answers to wordle using previous wordle responses'''
 
-    def get_possible_words(self, game_state):
+    def get_possible_words(self, game_state, sort=True, make_tuple=True):
         '''
         Get the set of all valid answers to wordle given the state of the game.
         Written to be easy to understand and accurate, not by any means the most efficient!
@@ -334,8 +349,12 @@ class SmartWordFilter(WordFilter):
             if hasattr(game_state, 'hidden_word'):
                 hidden_word = game_state.hidden_word 
             raise RuntimeError(f'No valid words found! Gamestate is: {game_state}. Hidden word is: {hidden_word}')
-        valid_words.sort()
-        return tuple(valid_words)
+        if sort:
+            valid_words.sort()
+        if make_tuple:
+            return tuple(valid_words)
+        else:
+            return valid_words
 
     def _is_valid_word(self, responses, guesses, word):
         for wordle_response, guess in zip(responses, guesses):
